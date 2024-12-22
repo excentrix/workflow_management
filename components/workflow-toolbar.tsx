@@ -1,65 +1,69 @@
-// components/workflow/WorkflowToolbar.tsx
+// components/workflow/workflow-toolbar.tsx
 "use client";
 
+import { Dispatch, SetStateAction } from "react";
 import { Button } from "@/components/ui/button";
-import { NodeType, WorkflowNode } from "@/types/workflow";
-import { Dispatch, SetStateAction, useCallback } from "react";
-import { Edge, Node, useReactFlow, ReactFlowInstance } from "@xyflow/react";
+import {
+  WorkflowNode,
+  WorkflowEdge,
+  LayoutDirection,
+  NodeType,
+} from "@/types/workflow";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { Plus } from "lucide-react";
+import { Plus, MoveHorizontal, MoveVertical, Circle } from "lucide-react";
+import { EdgeChange, NodeChange } from "@xyflow/react";
 
-interface WorkflowToolbarProps {
-  setNodes: Dispatch<SetStateAction<WorkflowNode[]>>;
-  setEdges: Dispatch<SetStateAction<Edge[]>>;
+export interface WorkflowToolbarProps {
+  layout: LayoutDirection;
+  setLayout: (direction: LayoutDirection) => void;
+  workflow: WorkflowNode | null;
+  setNodes: (changes: NodeChange[]) => void;
+  setEdges: (changes: EdgeChange[]) => void;
+  toggleGhostNodes: () => void;
+  showGhostNodes: boolean;
 }
-
 const nodeConfigs: Record<NodeType, { label: string; color: string }> = {
   task: { label: "Task", color: "border-blue-500" },
   condition: { label: "Condition", color: "border-yellow-500" },
   start: { label: "Start", color: "border-green-500" },
   end: { label: "End", color: "border-red-500" },
+  ghost: { label: "Ghost", color: "border-gray-300" },
 };
 
-export function WorkflowToolbar({ setNodes, setEdges }: WorkflowToolbarProps) {
-  const reactFlowInstance = useReactFlow();
+const layoutConfigs: Record<
+  LayoutDirection,
+  { label: string; icon: React.ReactNode }
+> = {
+  horizontal: {
+    label: "Horizontal",
+    icon: <MoveHorizontal className="h-4 w-4" />,
+  },
+  vertical: {
+    label: "Vertical",
+    icon: <MoveVertical className="h-4 w-4" />,
+  },
+  radial: {
+    label: "Radial",
+    icon: <Circle className="h-4 w-4" />,
+  },
+};
 
-  const addNode = (type: NodeType) => {
-    const viewport = reactFlowInstance.getViewport();
-    const position = reactFlowInstance.screenToFlowPosition({
-      x: window.innerWidth / 2,
-      y: window.innerHeight / 2,
-    });
-
-    setNodes((nodes) => {
-      const newNode = {
-        id: crypto.randomUUID(),
-        type,
-        position,
-        data: { label: `New ${nodeConfigs[type].label}` },
-      };
-      return [...nodes, newNode];
-    });
-  };
-
-  const onSave = useCallback(() => {
-    const flow = reactFlowInstance.toObject();
-    localStorage.setItem("workflow", JSON.stringify(flow));
-  }, [reactFlowInstance]);
-
-  const onLoad = useCallback(() => {
-    const flow = localStorage.getItem("workflow");
-    if (flow) {
-      const flowObject = JSON.parse(flow);
-      setNodes(flowObject.nodes || []);
-      setEdges(flowObject.edges || []);
-    }
-  }, [setNodes, setEdges]);
-
+export function WorkflowToolbar({
+  layout,
+  setLayout,
+  workflow,
+  setNodes,
+  setEdges,
+  toggleGhostNodes,
+  showGhostNodes,
+}: WorkflowToolbarProps) {
   return (
     <div className="flex gap-2 bg-background/60 backdrop-blur-sm p-2 rounded-md shadow-sm">
       <DropdownMenu>
@@ -74,13 +78,38 @@ export function WorkflowToolbar({ setNodes, setEdges }: WorkflowToolbarProps) {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">
-          {Object.entries(nodeConfigs).map(([type, config]) => (
+          <DropdownMenuLabel>Add Node</DropdownMenuLabel>
+          {Object.entries(nodeConfigs)
+            .filter(([type]) => type !== "ghost") // Exclude ghost nodes from menu
+            .map(([type, config]) => (
+              <DropdownMenuItem key={type} className="flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full ${config.color}`} />
+                {config.label}
+              </DropdownMenuItem>
+            ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-2"
+          >
+            {layoutConfigs[layout].icon}
+            Layout
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start">
+          <DropdownMenuLabel>Layout Direction</DropdownMenuLabel>
+          {Object.entries(layoutConfigs).map(([key, config]) => (
             <DropdownMenuItem
-              key={type}
-              onClick={() => addNode(type as NodeType)}
+              key={key}
               className="flex items-center gap-2"
+              onSelect={() => setLayout(key as LayoutDirection)}
             >
-              <div className={`w-2 h-2 rounded-full bg-${config.color}`} />
+              {config.icon}
               {config.label}
             </DropdownMenuItem>
           ))}
@@ -88,12 +117,42 @@ export function WorkflowToolbar({ setNodes, setEdges }: WorkflowToolbarProps) {
       </DropdownMenu>
 
       <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" onClick={onSave}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            const flow = {
+              nodes: [],
+              edges: [],
+            };
+            localStorage.setItem("workflow", JSON.stringify(flow));
+          }}
+        >
           Save
         </Button>
-        <Button variant="outline" size="sm" onClick={onLoad}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            const flow = localStorage.getItem("workflow");
+            if (flow) {
+              const { nodes, edges } = JSON.parse(flow);
+              setNodes(nodes || []);
+              setEdges(edges || []);
+            }
+          }}
+        >
           Load
         </Button>
+
+        <div className="workflow-controls">
+          <Button
+            onClick={toggleGhostNodes}
+            className="toggle-ghost-nodes"
+          >
+            {showGhostNodes ? "Hide Ghost Nodes" : "Show Ghost Nodes"}
+          </Button>
+        </div>
       </div>
     </div>
   );
