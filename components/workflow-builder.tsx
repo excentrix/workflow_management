@@ -1,7 +1,7 @@
 // components/workflow/WorkflowBuilder.tsx
 "use client";
 
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ReactFlow,
   Background,
@@ -22,11 +22,26 @@ import TaskNode from "@/nodes/task-node";
 import StartNode from "@/nodes/start-node";
 import EndNode from "@/nodes/end-node";
 import { WorkflowToolbar } from "./workflow-toolbar";
-import { WorkflowNode, WorkflowEdge, LayoutDirection } from "@/types/workflow";
+import {
+  WorkflowNode,
+  WorkflowEdge,
+  LayoutDirection,
+  NodeType,
+} from "@/types/workflow";
 import { useWorkflowStore } from "@/stores/workflow-store";
 import workflowEdge from "@/edges/workflow-edge";
 import ghostEdge from "@/edges/ghost-edge";
 import ghostNode from "@/nodes/ghost-node";
+import { NodeMenu } from "./NodeTypeMenu";
+import { ContextMenu } from "./ui/context-menu";
+import { AnimatePresence } from "framer-motion";
+
+interface MenuState {
+  open: boolean;
+  position: { x: number; y: number };
+  sourceNode?: string;
+  sourceHandle?: string;
+}
 
 interface ExtendedNode extends Node {
   depth?: number;
@@ -79,6 +94,16 @@ export default function WorkflowBuilder() {
     toggleGhostNodes,
   } = useWorkflowStore();
 
+  const [menuState, setMenuState] = useState<{
+    show: boolean;
+    position: { x: number; y: number };
+    sourceNode?: string;
+    sourceHandle?: string;
+  }>({
+    show: false,
+    position: { x: 0, y: 0 },
+  });
+
   // Initialize workflow on mount
   useEffect(() => {
     initialize(initialWorkflow);
@@ -99,7 +124,7 @@ export default function WorkflowBuilder() {
 
       const newNode: WorkflowNode = {
         id: crypto.randomUUID(),
-        type: "task",
+        type: "task" as NodeType,
         position: { x: 0, y: 0 },
         data: { label: "New Task" },
         parentId: parentId,
@@ -140,6 +165,91 @@ export default function WorkflowBuilder() {
     [layout, setLayout, workflow, onNodesChange, onEdgesChange]
   );
 
+  const { screenToFlowPosition } = useReactFlow();
+
+  const onConnectStart = useCallback(
+    (event: MouseEvent | TouchEvent, { nodeId, handleId }) => {
+      setMenuState((prev) => ({
+        ...prev,
+        sourceNode: nodeId,
+        sourceHandle: handleId,
+        show: false,
+      }));
+    },
+    []
+  );
+
+  const onConnectEnd = useCallback(
+    (event: MouseEvent | TouchEvent) => {
+      if (!menuState.sourceNode) return;
+
+      // Prevent default to stop edge creation
+      event.preventDefault();
+
+      const clientX =
+        event instanceof MouseEvent ? event.clientX : event.touches[0].clientX;
+      const clientY =
+        event instanceof MouseEvent ? event.clientY : event.touches[0].clientY;
+
+      setMenuState((prev) => ({
+        ...prev,
+        show: true,
+        position: {
+          x: clientX,
+          y: clientY,
+        },
+      }));
+    },
+    [menuState.sourceNode]
+  );
+
+  const onSelectNodeType = useCallback(
+    (type: string) => {
+      if (!menuState.sourceNode) return;
+
+      const position = screenToFlowPosition({
+        x: menuState.position.x,
+        y: menuState.position.y,
+      });
+
+      const sourceNode = nodes.find(
+        (n: WorkflowNode) => n.id === menuState.sourceNode
+      );
+      if (!sourceNode) return;
+
+      const newNode: WorkflowNode = {
+        id: crypto.randomUUID(),
+        type,
+        position,
+        data: { label: `New ${type}` },
+        parentId: menuState.sourceNode,
+        depth: (sourceNode.depth || 0) + 1,
+        sourcePosition:
+          layout === "horizontal" ? Position.Right : Position.Bottom,
+        targetPosition: layout === "horizontal" ? Position.Left : Position.Top,
+      };
+
+      addWorkflowNode(menuState.sourceNode, newNode);
+      setMenuState((prev) => ({ ...prev, show: false }));
+    },
+    [menuState, screenToFlowPosition, nodes, layout, addWorkflowNode]
+  );
+  // Add click outside handler
+  const handleCloseMenu = useCallback(() => {
+    setMenuState((prev) => ({ ...prev, show: false }));
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && menuState.show) {
+        setMenuState((prev) => ({ ...prev, show: false }));
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [menuState.show, handleCloseMenu]);
+
   return (
     <div className="flex h-screen w-full">
       <ReactFlow
@@ -148,6 +258,8 @@ export default function WorkflowBuilder() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onConnectStart={onConnectStart}
+        onConnectEnd={onConnectEnd}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         fitView
@@ -183,6 +295,15 @@ export default function WorkflowBuilder() {
         <Panel position="top-left">
           <WorkflowToolbar {...toolbarProps} />
         </Panel>
+        <AnimatePresence>
+          {menuState.show && (
+            <NodeMenu
+              position={menuState.position}
+              onSelect={onSelectNodeType}
+              onClose={handleCloseMenu}
+            />
+          )}
+        </AnimatePresence>
       </ReactFlow>
     </div>
   );

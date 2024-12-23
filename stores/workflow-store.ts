@@ -20,8 +20,8 @@ import {
 
 interface WorkflowState {
   workflow: WorkflowNode | null;
-  nodes: Node[];
-  edges: Edge[];
+  nodes: WorkflowNode[];
+  edges: WorkflowEdge[];
   layout: LayoutDirection;
   initialize: (initialWorkflow: WorkflowNode) => void;
   setLayout: (direction: LayoutDirection) => void;
@@ -41,7 +41,7 @@ export const useWorkflowStore = create<WorkflowState>()(
       nodes: [],
       edges: [],
       layout: "horizontal",
-      showGhostNodes: true,
+      showGhostNodes: false,
 
       initialize: (initialWorkflow) => {
         set({ workflow: initialWorkflow });
@@ -62,7 +62,7 @@ export const useWorkflowStore = create<WorkflowState>()(
 
       onNodesChange: (changes) => {
         set({
-          nodes: applyNodeChanges(changes, get().nodes),
+          nodes: applyNodeChanges(changes, get().nodes) as WorkflowNode[],
         });
       },
 

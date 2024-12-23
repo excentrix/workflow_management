@@ -80,3 +80,14 @@ body {
   }
 }
 
+/* styles/globals.css */
+.react-flow__node {
+  z-index: 1;
+}
+
+.context-menu-content {
+  z-index: 1000;
+  background: white;
+  border-radius: 6px;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+}

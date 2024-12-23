@@ -1,5 +1,4 @@
 // lib/workflow-layout.ts
-import { graphlib, layout } from "dagre";
 import { Position } from "@xyflow/react";
 import { WorkflowNode, WorkflowEdge, LayoutDirection } from "@/types/workflow";
 
