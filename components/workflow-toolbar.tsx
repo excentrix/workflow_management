@@ -39,6 +39,7 @@ const nodeConfigs: Record<NodeType, { label: string; color: string }> = {
   start: { label: "Start", color: "border-green-500" },
   end: { label: "End", color: "border-red-500" },
   ghost: { label: "Ghost", color: "border-gray-300" },
+  department: { label: "Department", color: "border-purple-500" },
 };
 
 const layoutConfigs: Record<

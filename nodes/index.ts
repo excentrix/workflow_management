@@ -9,7 +9,7 @@ export const nodeTypes: NodeTypes = {
   // testing
   // task: taskNode,
   start: startNode,
-  // end: endNode,
+  end: endNode,
   ghost: ghostNode,
 
   // workflow

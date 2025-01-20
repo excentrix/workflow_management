@@ -11,7 +11,11 @@ function StartNode({ data }: NodeProps<WorkflowNode>) {
         <div className="text-sm font-bold">{data.label}</div>
         {/* </div> */}
       </div>
-      <Handle type="source" className="h-5 rounded bg-blue-500" position={Position.Right} />
+      <Handle
+        type="source"
+        className="h-5 rounded bg-blue-500"
+        position={Position.Right}
+      />
     </div>
   );
 }

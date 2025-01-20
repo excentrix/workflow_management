@@ -1,5 +1,5 @@
 // components/workflow/TaskConfigSheet.tsx
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   Sheet,
   SheetContent,
@@ -25,13 +25,14 @@ import {
 } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { Calendar as CalendarIcon } from "lucide-react";
-import { DeptNodeData } from ".";
+import { DepartmentData } from ".";
+import TagsInput from "@/components/misc/tags-input";
 
 interface DeptConfigSheetProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  data: DeptNodeData;
-  onUpdate: (data: Partial<DeptNodeData>) => void;
+  data: DepartmentData;
+  onUpdate: (updates: DepartmentData) => void;
 }
 
 export function DeptConfigSheet({
@@ -40,6 +41,58 @@ export function DeptConfigSheet({
   data,
   onUpdate,
 }: DeptConfigSheetProps) {
+  const [formData, setFormData] = useState<DepartmentData>({
+    label: data.label || "",
+    departmentId: data.departmentId || "",
+    task: data.task || "",
+    assignee: data.assignee || "",
+    dueDate: data.dueDate || "",
+    priority: data.priority || "",
+    status: data.status || "",
+    comments: data.comments || "",
+    attachments: data.attachments || "",
+    tags: data.tags || [],
+  });
+
+  // Update local state when data prop changes
+  useEffect(() => {
+    setFormData({
+      ...data,
+    });
+  }, [data]);
+
+  // Handle form submission
+  const handleSubmit = () => {
+    console.log(formData);
+    onUpdate(formData);
+    onOpenChange(false);
+  };
+
+  // Update local state and parent component
+  const handleChange = (key: keyof DepartmentData, value: string) => {
+    const updates = { [key]: value };
+    setFormData((prev) => ({
+      ...prev,
+      ...updates,
+    }));
+    onUpdate({
+      ...data,
+      ...updates,
+    });
+  };
+
+  const handleTagsChange = (newTags: string[]) => {
+    const updates = { tags: newTags };
+    setFormData((prev) => ({
+      ...prev,
+      ...updates,
+    }));
+    onUpdate({
+      ...data,
+      ...updates,
+    });
+  };
+
   return (
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
       <SheetContent className="w-[400px] sm:w-[540px] overflow-y-auto">
@@ -52,8 +105,8 @@ export function DeptConfigSheet({
             <Label htmlFor="label">Task Name</Label>
             <Input
               id="label"
-              value={data.label}
-              onChange={(e) => onUpdate({ label: e.target.value })}
+              value={formData.label}
+              onChange={(e) => handleChange("label", e.target.value)}
             />
           </div>
 
@@ -61,16 +114,16 @@ export function DeptConfigSheet({
             <Label htmlFor="task">Task Description</Label>
             <Textarea
               id="task"
-              value={data.task}
-              onChange={(e) => onUpdate({ task: e.target.value })}
+              value={formData.task}
+              onChange={(e) => handleChange("task", e.target.value)}
             />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="assignee">Assignee</Label>
             <Select
-              value={data.assignee}
-              onValueChange={(value) => onUpdate({ assignee: value })}
+              value={formData.assignee}
+              onValueChange={(value) => handleChange("assignee", value)}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select assignee" />
@@ -92,17 +145,19 @@ export function DeptConfigSheet({
                   className="w-full justify-start text-left font-normal"
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {data.dueDate
-                    ? format(new Date(data.dueDate), "PPP")
+                  {formData.dueDate
+                    ? format(new Date(formData.dueDate), "PPP")
                     : "Pick a date"}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0">
                 <Calendar
                   mode="single"
-                  selected={data.dueDate ? new Date(data.dueDate) : undefined}
+                  selected={
+                    formData.dueDate ? new Date(formData.dueDate) : undefined
+                  }
                   onSelect={(date) =>
-                    onUpdate({ dueDate: date?.toISOString() })
+                    handleChange("dueDate", date ? date.toISOString() : "")
                   }
                   initialFocus
                 />
@@ -113,8 +168,8 @@ export function DeptConfigSheet({
           <div className="space-y-2">
             <Label htmlFor="priority">Priority</Label>
             <Select
-              value={data.priority}
-              onValueChange={(value) => onUpdate({ priority: value })}
+              value={formData.priority}
+              onValueChange={(value) => handleChange("priority", value)}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select priority" />
@@ -130,8 +185,8 @@ export function DeptConfigSheet({
           <div className="space-y-2">
             <Label htmlFor="status">Status</Label>
             <Select
-              value={data.status}
-              onValueChange={(value) => onUpdate({ status: value })}
+              value={formData.status}
+              onValueChange={(value) => handleChange("status", value)}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select status" />
@@ -148,20 +203,26 @@ export function DeptConfigSheet({
             <Label htmlFor="comments">Comments</Label>
             <Textarea
               id="comments"
-              value={data.comments}
-              onChange={(e) => onUpdate({ comments: e.target.value })}
+              value={formData.comments}
+              onChange={(e) => handleChange("comments", e.target.value)}
             />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="tags">Tags</Label>
-            <Input
-              id="tags"
-              value={data.tags}
-              onChange={(e) => onUpdate({ tags: e.target.value })}
-              placeholder="Comma-separated tags"
+            <TagsInput
+              tags={formData.tags}
+              onChange={handleTagsChange}
+              placeholder="Add tags..."
             />
           </div>
+          <Button
+            onClick={handleSubmit}
+            variant="default"
+            className="w-full mt-4"
+          >
+            Save
+          </Button>
         </div>
       </SheetContent>
     </Sheet>

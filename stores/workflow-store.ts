@@ -20,7 +20,9 @@ interface WorkflowState {
   onNodesChange: (changes: NodeChange[]) => void;
   onEdgesChange: (changes: EdgeChange[]) => void;
   addWorkflowNode: (parentId: string, newNode: WorkflowNode) => void;
-  setNodes: (nodes: WorkflowNode[]) => void;
+  setNodes: (
+    updater: WorkflowNode[] | ((nodes: WorkflowNode[]) => WorkflowNode[])
+  ) => void;
   setEdges: (edges: WorkflowEdge[]) => void;
 }
 
@@ -39,8 +41,17 @@ export const useWorkflowStore = create<WorkflowState>()(
         });
       },
 
-      setNodes: (nodes) => {
-        set({ nodes });
+      setNodes: (
+        updater:
+          | WorkflowNode[]
+          | ((prevNodes: WorkflowNode[]) => WorkflowNode[])
+      ) => {
+        const nodes = get().nodes;
+
+        const newNodes =
+          typeof updater === "function" ? updater(nodes) : updater;
+
+        set({ nodes: newNodes });
       },
 
       setEdges: (edges) => {
@@ -60,8 +71,12 @@ export const useWorkflowStore = create<WorkflowState>()(
             return {
               ...node,
               position: {
-                x: positionChange.position.x,
-                y: positionChange.position.y,
+                x: Number.isFinite(positionChange.position.x)
+                  ? positionChange.position.x
+                  : node.position.x,
+                y: Number.isFinite(positionChange.position.y)
+                  ? positionChange.position.y
+                  : node.position.y,
               },
             };
           }
@@ -103,7 +118,10 @@ export const useWorkflowStore = create<WorkflowState>()(
         // Ensure newNode has a valid position
         const newNodeWithPosition: WorkflowNode = {
           ...newNode,
-          position: newNode.position || { x: 0, y: 0 },
+          position: {
+            x: Number.isFinite(newNode.position?.x) ? newNode.position.x : 0,
+            y: Number.isFinite(newNode.position?.y) ? newNode.position.y : 0,
+          },
         };
 
         // Add node to workflow

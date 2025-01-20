@@ -25,6 +25,7 @@ import workflowEdge from "@/edges/workflow-edge";
 import ghostEdge from "@/edges/ghost-edge";
 import { NodeMenu } from "./NodeTypeMenu";
 import { AnimatePresence } from "framer-motion";
+import { nodeTypes } from "@/nodes";
 
 interface MenuState {
   show: boolean;
@@ -45,13 +46,13 @@ const edgeTypes = {
 const initialWorkflow: WorkflowNode = {
   id: "start",
   type: "start" as NodeType,
-  position: { x: 0, y: 0 },
+  position: { x: 100, y: 100 }, // Give it specific coordinates
   data: { label: "Start" },
   children: [
     {
       id: "task-1",
       type: "task" as NodeType,
-      position: { x: 0, y: 0 },
+      position: { x: 250, y: 100 }, // Position it relative to start
       data: { label: "Task 1" },
       parentId: "start",
       depth: 1,
@@ -171,6 +172,12 @@ export default function WorkflowBuilder() {
         y: menuState.position.y,
       });
 
+      // Ensure position values are numbers and not NaN
+      const validPosition = {
+        x: Number.isFinite(position.x) ? position.x : 0,
+        y: Number.isFinite(position.y) ? position.y : 0,
+      };
+
       const sourceNode = nodes.find(
         (n) => n.id === menuState.sourceNode
       ) as WorkflowNode;
@@ -179,7 +186,7 @@ export default function WorkflowBuilder() {
       const newNode: WorkflowNode = {
         id: crypto.randomUUID(),
         type: type as NodeType,
-        position,
+        position: validPosition,
         data: { label: `New ${type}` },
         parentId: menuState.sourceNode,
         depth: (sourceNode.depth || 0) + 1,
@@ -245,6 +252,7 @@ export default function WorkflowBuilder() {
           [-2000, -2000],
           [2000, 2000],
         ]}
+        // colorMode="dark"
       >
         <Background gap={20} size={1} />
         <Controls showInteractive={false} />
