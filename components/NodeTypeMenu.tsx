@@ -46,6 +46,13 @@ const nodeItems: NodeMenuItem[] = [
     icon: "🏁",
     description: "Workflow endpoint",
   },
+  // workflow
+  {
+    id: "department",
+    label: "Department",
+    icon: "📊",
+    description: "Department node",
+  },
 ];
 
 interface NodeMenuProps {

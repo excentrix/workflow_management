@@ -18,41 +18,18 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
-import TaskNode from "@/nodes/task-node";
-import StartNode from "@/nodes/start-node";
-import EndNode from "@/nodes/end-node";
 import { WorkflowToolbar } from "./workflow-toolbar";
-import {
-  WorkflowNode,
-  WorkflowEdge,
-  LayoutDirection,
-  NodeType,
-} from "@/types/workflow";
+import { WorkflowNode, NodeType } from "@/types/workflow";
 import { useWorkflowStore } from "@/stores/workflow-store";
 import workflowEdge from "@/edges/workflow-edge";
 import ghostEdge from "@/edges/ghost-edge";
-import ghostNode from "@/nodes/ghost-node";
 import { NodeMenu } from "./NodeTypeMenu";
-import { ContextMenu } from "./ui/context-menu";
 import { AnimatePresence } from "framer-motion";
-
-interface MenuState {
-  open: boolean;
-  position: { x: number; y: number };
-  sourceNode?: string;
-  sourceHandle?: string;
-}
+import { nodeTypes } from "@/nodes";
 
 interface ExtendedNode extends Node {
   depth?: number;
 }
-
-const nodeTypes: NodeTypes = {
-  task: TaskNode,
-  start: StartNode,
-  end: EndNode,
-  ghost: ghostNode,
-};
 
 const edgeTypes = {
   ghost: ghostEdge,
@@ -118,7 +95,7 @@ export default function WorkflowBuilder() {
   const handleAddNode = useCallback(
     (event: CustomEvent<{ parentId: string; ghostId: string }>) => {
       const { parentId } = event.detail;
-      const parentNode = nodes.find((n) => n.id === parentId) as ExtendedNode;
+      const parentNode = nodes.find((n: WorkflowNode) => n.id === parentId);
 
       if (!parentNode) return;
 
@@ -168,7 +145,7 @@ export default function WorkflowBuilder() {
   const { screenToFlowPosition } = useReactFlow();
 
   const onConnectStart = useCallback(
-    (event: MouseEvent | TouchEvent, { nodeId, handleId }) => {
+    (event: MouseEvent | TouchEvent, { nodeId, handleId }: any) => {
       setMenuState((prev) => ({
         ...prev,
         sourceNode: nodeId,
@@ -219,7 +196,7 @@ export default function WorkflowBuilder() {
 
       const newNode: WorkflowNode = {
         id: crypto.randomUUID(),
-        type,
+        type: type as NodeType,
         position,
         data: { label: `New ${type}` },
         parentId: menuState.sourceNode,

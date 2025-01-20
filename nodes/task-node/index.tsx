@@ -3,7 +3,11 @@ import { memo } from "react";
 import { Handle, Position, NodeProps } from "@xyflow/react";
 import { WorkflowNode } from "@/types/workflow";
 
-function TaskNode({ data }: NodeProps<WorkflowNode>) {
+interface TaskNodeData extends WorkflowNode {
+  label: string;
+}
+
+function TaskNode({ data }: NodeProps<TaskNodeData>) {
   return (
     <div className="px-4 py-2 shadow-md rounded-md bg-white border-2 border-blue-500">
       <Handle type="target" position={Position.Left} />
