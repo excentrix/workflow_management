@@ -17,17 +17,21 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { Plus, MoveHorizontal, MoveVertical, Circle } from "lucide-react";
+import {
+  Plus,
+  MoveHorizontal,
+  MoveVertical,
+  Circle,
+  Lock,
+  Unlock,
+} from "lucide-react";
 import { EdgeChange, NodeChange } from "@xyflow/react";
+import { cn } from "@/lib/utils";
 
 export interface WorkflowToolbarProps {
-  layout: LayoutDirection;
-  setLayout: (direction: LayoutDirection) => void;
   workflow: WorkflowNode | null;
   setNodes: (changes: NodeChange[]) => void;
   setEdges: (changes: EdgeChange[]) => void;
-  toggleGhostNodes: () => void;
-  showGhostNodes: boolean;
 }
 const nodeConfigs: Record<NodeType, { label: string; color: string }> = {
   task: { label: "Task", color: "border-blue-500" },
@@ -56,13 +60,9 @@ const layoutConfigs: Record<
 };
 
 export function WorkflowToolbar({
-  layout,
-  setLayout,
   workflow,
   setNodes,
   setEdges,
-  toggleGhostNodes,
-  showGhostNodes,
 }: WorkflowToolbarProps) {
   return (
     <div className="flex gap-2 bg-background/60 backdrop-blur-sm p-2 rounded-md shadow-sm">
@@ -90,7 +90,7 @@ export function WorkflowToolbar({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <DropdownMenu>
+      {/* <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
             variant="outline"
@@ -114,7 +114,17 @@ export function WorkflowToolbar({
             </DropdownMenuItem>
           ))}
         </DropdownMenuContent>
-      </DropdownMenu>
+      </DropdownMenu> */}
+
+      {/* <Button
+        variant="outline"
+        size="sm"
+        onClick={toggleAutoLayout}
+        className={cn("flex items-center gap-2", isAutoLayout && "bg-blue-100")}
+      >
+        {isAutoLayout ? <Lock /> : <Unlock />}
+        Auto Layout
+      </Button> */}
 
       <div className="flex items-center gap-2">
         <Button
@@ -145,14 +155,11 @@ export function WorkflowToolbar({
           Load
         </Button>
 
-        <div className="workflow-controls">
-          <Button
-            onClick={toggleGhostNodes}
-            className="toggle-ghost-nodes"
-          >
+        {/* <div className="workflow-controls">
+          <Button onClick={toggleGhostNodes} className="toggle-ghost-nodes">
             {showGhostNodes ? "Hide Ghost Nodes" : "Show Ghost Nodes"}
           </Button>
-        </div>
+        </div> */}
       </div>
     </div>
   );

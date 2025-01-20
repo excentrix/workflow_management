@@ -1,4 +1,3 @@
-// components/workflow/WorkflowBuilder.tsx
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -15,6 +14,7 @@ import {
   Position,
   useReactFlow,
   Node,
+  OnConnectStartParams,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
@@ -22,22 +22,16 @@ import TaskNode from "@/nodes/task-node";
 import StartNode from "@/nodes/start-node";
 import EndNode from "@/nodes/end-node";
 import { WorkflowToolbar } from "./workflow-toolbar";
-import {
-  WorkflowNode,
-  WorkflowEdge,
-  LayoutDirection,
-  NodeType,
-} from "@/types/workflow";
+import { WorkflowNode, WorkflowEdge, NodeType } from "@/types/workflow";
 import { useWorkflowStore } from "@/stores/workflow-store";
 import workflowEdge from "@/edges/workflow-edge";
 import ghostEdge from "@/edges/ghost-edge";
 import ghostNode from "@/nodes/ghost-node";
 import { NodeMenu } from "./NodeTypeMenu";
-import { ContextMenu } from "./ui/context-menu";
 import { AnimatePresence } from "framer-motion";
 
 interface MenuState {
-  open: boolean;
+  show: boolean;
   position: { x: number; y: number };
   sourceNode?: string;
   sourceHandle?: string;
@@ -61,13 +55,13 @@ const edgeTypes = {
 
 const initialWorkflow: WorkflowNode = {
   id: "start",
-  type: "start",
+  type: "start" as NodeType,
   position: { x: 0, y: 0 },
   data: { label: "Start" },
   children: [
     {
       id: "task-1",
-      type: "task",
+      type: "task" as NodeType,
       position: { x: 0, y: 0 },
       data: { label: "Task 1" },
       parentId: "start",
@@ -77,43 +71,26 @@ const initialWorkflow: WorkflowNode = {
 };
 
 export default function WorkflowBuilder() {
-  const { fitView } = useReactFlow();
+  const { fitView, screenToFlowPosition } = useReactFlow();
   const {
     nodes,
     edges,
-    layout,
     workflow,
-    setLayout,
     onNodesChange,
     onEdgesChange,
     addWorkflowNode,
-    updateLayout,
     initialize,
     setEdges,
-    showGhostNodes,
-    toggleGhostNodes,
   } = useWorkflowStore();
 
-  const [menuState, setMenuState] = useState<{
-    show: boolean;
-    position: { x: number; y: number };
-    sourceNode?: string;
-    sourceHandle?: string;
-  }>({
+  const [menuState, setMenuState] = useState<MenuState>({
     show: false,
     position: { x: 0, y: 0 },
   });
 
-  // Initialize workflow on mount
   useEffect(() => {
     initialize(initialWorkflow);
   }, [initialize]);
-
-  // Update layout when direction changes
-  useEffect(() => {
-    updateLayout();
-    setTimeout(() => fitView({ padding: 0.2 }), 50);
-  }, [layout, updateLayout, fitView, showGhostNodes]);
 
   const handleAddNode = useCallback(
     (event: CustomEvent<{ parentId: string; ghostId: string }>) => {
@@ -129,14 +106,13 @@ export default function WorkflowBuilder() {
         data: { label: "New Task" },
         parentId: parentId,
         depth: (parentNode.depth || 0) + 1,
-        sourcePosition:
-          layout === "horizontal" ? Position.Right : Position.Bottom,
-        targetPosition: layout === "horizontal" ? Position.Left : Position.Top,
+        sourcePosition: Position.Right,
+        targetPosition: Position.Left,
       };
 
       addWorkflowNode(parentId, newNode);
     },
-    [nodes, layout, addWorkflowNode]
+    [nodes, addWorkflowNode]
   );
 
   useEffect(() => {
@@ -147,32 +123,27 @@ export default function WorkflowBuilder() {
 
   const onConnect = useCallback(
     (params: Connection | Edge) => {
-      setEdges((eds: Edge[]) => addEdge(params, eds));
+      setEdges((eds: Edge[]) => addEdge(params, eds as WorkflowEdge[]));
     },
     [setEdges]
   );
 
   const toolbarProps = useMemo(
     () => ({
-      layout,
-      setLayout,
       workflow,
       setNodes: onNodesChange,
       setEdges: onEdgesChange,
-      showGhostNodes,
-      toggleGhostNodes,
     }),
-    [layout, setLayout, workflow, onNodesChange, onEdgesChange]
+    [workflow, onNodesChange, onEdgesChange]
   );
 
-  const { screenToFlowPosition } = useReactFlow();
-
   const onConnectStart = useCallback(
-    (event: MouseEvent | TouchEvent, { nodeId, handleId }) => {
+    (_: MouseEvent | TouchEvent, params: OnConnectStartParams) => {
+      const { nodeId, handleId } = params;
       setMenuState((prev) => ({
         ...prev,
-        sourceNode: nodeId,
-        sourceHandle: handleId,
+        sourceNode: nodeId || undefined,
+        sourceHandle: handleId || undefined,
         show: false,
       }));
     },
@@ -183,7 +154,6 @@ export default function WorkflowBuilder() {
     (event: MouseEvent | TouchEvent) => {
       if (!menuState.sourceNode) return;
 
-      // Prevent default to stop edge creation
       event.preventDefault();
 
       const clientX =
@@ -213,28 +183,27 @@ export default function WorkflowBuilder() {
       });
 
       const sourceNode = nodes.find(
-        (n: WorkflowNode) => n.id === menuState.sourceNode
-      );
+        (n) => n.id === menuState.sourceNode
+      ) as WorkflowNode;
       if (!sourceNode) return;
 
       const newNode: WorkflowNode = {
         id: crypto.randomUUID(),
-        type,
+        type: type as NodeType,
         position,
         data: { label: `New ${type}` },
         parentId: menuState.sourceNode,
         depth: (sourceNode.depth || 0) + 1,
-        sourcePosition:
-          layout === "horizontal" ? Position.Right : Position.Bottom,
-        targetPosition: layout === "horizontal" ? Position.Left : Position.Top,
+        sourcePosition: Position.Right,
+        targetPosition: Position.Left,
       };
 
       addWorkflowNode(menuState.sourceNode, newNode);
       setMenuState((prev) => ({ ...prev, show: false }));
     },
-    [menuState, screenToFlowPosition, nodes, layout, addWorkflowNode]
+    [menuState, screenToFlowPosition, nodes, addWorkflowNode]
   );
-  // Add click outside handler
+
   const handleCloseMenu = useCallback(() => {
     setMenuState((prev) => ({ ...prev, show: false }));
   }, []);
@@ -248,7 +217,7 @@ export default function WorkflowBuilder() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [menuState.show, handleCloseMenu]);
+  }, [menuState.show]);
 
   return (
     <div className="flex h-screen w-full">
@@ -270,20 +239,19 @@ export default function WorkflowBuilder() {
         selectNodesOnDrag={false}
         elevateNodesOnSelect
         fitViewOptions={{
-          padding: 0.1, // Reduced padding
+          padding: 0.1,
           minZoom: 0.5,
           maxZoom: 1.5,
         }}
         defaultViewport={{
-          zoom: 1.2, // Adjust initial zoom
-          x: 50, // Adjust initial position
+          zoom: 1.2,
+          x: 50,
           y: 50,
         }}
-        // Add minimum node distance
-        nodesDraggable={true}
-        snapToGrid={true}
+        nodesDraggable
+        nodesConnectable
+        snapToGrid
         snapGrid={[10, 10]}
-        // Add node spacing constraint
         nodeExtent={[
           [-2000, -2000],
           [2000, 2000],
