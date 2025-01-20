@@ -1,73 +1,92 @@
-// hooks/useWorkflowLayout.ts
-import { useState, useCallback, useEffect } from "react";
-import { useNodesState, useEdgesState } from "@xyflow/react";
+import { useState, useCallback } from "react";
 import {
-  generateWorkflowLayout,
-  DEFAULT_SPACING,
-  DEFAULT_NODE_DIMENSIONS,
+  useNodesState,
+  useEdgesState,
+  NodeChange,
+  EdgeChange,
+  NodePositionChange,
+} from "@xyflow/react";
+import {
   addNodeToWorkflow,
   removeNodeFromWorkflow,
 } from "@/lib/workflow-layout";
-import { WorkflowNode, LayoutDirection, WorkflowEdge } from "@/types/workflow";
+import { WorkflowNode, WorkflowEdge } from "@/types/workflow";
 
-interface UseWorkflowLayoutOptions {
-  direction?: LayoutDirection;
-  spacing?: typeof DEFAULT_SPACING;
-  nodeDimensions?: typeof DEFAULT_NODE_DIMENSIONS;
-}
-
-export function useWorkflowLayout(
-  initialWorkflow: WorkflowNode,
-  options: UseWorkflowLayoutOptions = {}
-) {
-  const [workflow, setWorkflow] = useState(initialWorkflow);
+export function useWorkflowLayout(initialWorkflow: WorkflowNode) {
+  const [workflow, setWorkflow] = useState<WorkflowNode>(initialWorkflow);
   const [nodes, setNodes, onNodesChange] = useNodesState<WorkflowNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<WorkflowEdge>([]);
 
-  const updateLayout = useCallback(() => {
-    const { nodes: layoutNodes, edges: layoutEdges } = generateWorkflowLayout(
-      workflow,
-      {
-        direction: options.direction || "horizontal",
-        spacing: options.spacing,
-        nodeWidth: options.nodeDimensions?.width,
-        nodeHeight: options.nodeDimensions?.height,
-      }
-    );
-
-    setNodes(layoutNodes);
-    setEdges(layoutEdges);
-  }, [workflow, options, setNodes, setEdges]);
-
+  // Add node
   const addNode = useCallback(
     (
       parentId: string,
       newNode: WorkflowNode,
       position?: "before" | "after" | number
     ) => {
-      setWorkflow((current) =>
-        addNodeToWorkflow(current, parentId, newNode, position)
-      );
+      setWorkflow((current) => {
+        const updatedWorkflow = addNodeToWorkflow(current, parentId, newNode);
+        return updatedWorkflow;
+      });
     },
     []
   );
 
-  const removeNode = useCallback((nodeId: string) => {
-    setWorkflow((current) => removeNodeFromWorkflow(current, nodeId));
-  }, []);
+  // Remove node with cleanup
+  const removeNode = useCallback(
+    (nodeId: string) => {
+      setWorkflow((current) => {
+        const updatedWorkflow = removeNodeFromWorkflow(current, nodeId);
+        return updatedWorkflow;
+      });
 
-  useEffect(() => {
-    updateLayout();
-  }, [workflow, updateLayout]);
+      setEdges((eds) =>
+        eds.filter((edge) => edge.source !== nodeId && edge.target !== nodeId)
+      );
+    },
+    [setEdges]
+  );
+
+  // Handle node changes
+  const handleNodesChange = useCallback(
+    (changes: NodeChange[]) => {
+      // Type assertion for onNodesChange
+      onNodesChange(changes as NodeChange<WorkflowNode>[]);
+
+      // Update workflow with new positions
+      const positionChanges = changes.filter(
+        (change): change is NodePositionChange => change.type === "position"
+      );
+
+      if (positionChanges.length > 0) {
+        setWorkflow((current) => {
+          const updatePositions = (node: WorkflowNode): WorkflowNode => {
+            const change = positionChanges.find((c) => c.id === node.id);
+            return {
+              ...node,
+              // Ensure position is always defined
+              position: change?.position ?? node.position ?? { x: 0, y: 0 },
+              children: node.children
+                ? node.children.map(updatePositions)
+                : undefined,
+            };
+          };
+          return updatePositions(current);
+        });
+      }
+    },
+    [onNodesChange]
+  );
 
   return {
     workflow,
     nodes,
     edges,
-    onNodesChange,
+    onNodesChange: handleNodesChange,
     onEdgesChange,
     addNode,
     removeNode,
-    updateLayout,
+    setNodes,
+    setEdges,
   };
 }

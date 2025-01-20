@@ -1,37 +1,27 @@
-// stores/workflow-store.ts
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
 import {
   Connection,
   Edge,
-  Node,
   NodeChange,
   EdgeChange,
-  applyNodeChanges,
-  applyEdgeChanges,
+  Node,
+  NodePositionChange,
+  EdgeSelectionChange,
+  EdgeRemoveChange,
 } from "@xyflow/react";
-import { WorkflowNode, WorkflowEdge, LayoutDirection } from "@/types/workflow";
-import {
-  generateWorkflowLayout,
-  addNodeToWorkflow,
-  DEFAULT_SPACING,
-  DEFAULT_NODE_DIMENSIONS,
-} from "@/lib/workflow-layout";
+import { WorkflowNode, WorkflowEdge } from "@/types/workflow";
 
 interface WorkflowState {
   workflow: WorkflowNode | null;
   nodes: WorkflowNode[];
   edges: WorkflowEdge[];
-  layout: LayoutDirection;
   initialize: (initialWorkflow: WorkflowNode) => void;
-  setLayout: (direction: LayoutDirection) => void;
   onNodesChange: (changes: NodeChange[]) => void;
   onEdgesChange: (changes: EdgeChange[]) => void;
   addWorkflowNode: (parentId: string, newNode: WorkflowNode) => void;
-  updateLayout: () => void;
-  setEdges: (edges: Edge[] | ((edges: Edge[]) => Edge[])) => void;
-  showGhostNodes: boolean;
-  toggleGhostNodes: () => void;
+  setNodes: (nodes: WorkflowNode[]) => void;
+  setEdges: (edges: WorkflowEdge[]) => void;
 }
 
 export const useWorkflowStore = create<WorkflowState>()(
@@ -40,70 +30,96 @@ export const useWorkflowStore = create<WorkflowState>()(
       workflow: null,
       nodes: [],
       edges: [],
-      layout: "horizontal",
-      showGhostNodes: false,
 
       initialize: (initialWorkflow) => {
-        set({ workflow: initialWorkflow });
-        const { nodes, edges } = generateWorkflowLayout(initialWorkflow, {
-          direction: get().layout,
-          spacing: DEFAULT_SPACING,
+        set({
+          workflow: initialWorkflow,
+          nodes: [initialWorkflow],
+          edges: [],
         });
-        set({ nodes, edges });
       },
 
-      setLayout: (direction) => {
-        set({ layout: direction });
+      setNodes: (nodes) => {
+        set({ nodes });
       },
 
-      setEdges: (edges: Edge[]) => {
+      setEdges: (edges) => {
         set({ edges });
       },
 
-      onNodesChange: (changes) => {
-        set({
-          nodes: applyNodeChanges(changes, get().nodes) as WorkflowNode[],
+      onNodesChange: (changes: NodeChange[]) => {
+        const nodes = get().nodes;
+        // Update nodes with position changes
+        const updatedNodes = nodes.map((node) => {
+          const positionChange = changes.find(
+            (c): c is NodePositionChange =>
+              c.type === "position" && "id" in c && c.id === node.id
+          );
+
+          if (positionChange && positionChange.position) {
+            return {
+              ...node,
+              position: {
+                x: positionChange.position.x,
+                y: positionChange.position.y,
+              },
+            };
+          }
+          return node;
         });
+
+        set({ nodes: updatedNodes });
       },
 
-      onEdgesChange: (changes) => {
-        set({
-          edges: applyEdgeChanges(changes, get().edges),
+      onEdgesChange: (changes: EdgeChange[]) => {
+        const edges = get().edges;
+        const updatedEdges = edges.filter((edge) => {
+          // Handle edge removal
+          const removeChange = changes.find(
+            (c): c is EdgeRemoveChange =>
+              c.type === "remove" && "id" in c && c.id === edge.id
+          );
+          if (removeChange) return false;
+
+          // Handle edge selection
+          const selectionChange = changes.find(
+            (c): c is EdgeSelectionChange =>
+              c.type === "select" && "id" in c && c.id === edge.id
+          );
+          if (selectionChange) {
+            edge.selected = selectionChange.selected;
+          }
+
+          return true;
         });
+
+        set({ edges: updatedEdges });
       },
 
       addWorkflowNode: (parentId, newNode) => {
         const workflow = get().workflow;
         if (!workflow) return;
 
-        const updatedWorkflow = addNodeToWorkflow(workflow, parentId, newNode);
-        set({ workflow: updatedWorkflow });
+        // Ensure newNode has a valid position
+        const newNodeWithPosition: WorkflowNode = {
+          ...newNode,
+          position: newNode.position || { x: 0, y: 0 },
+        };
 
-        const { nodes, edges } = generateWorkflowLayout(updatedWorkflow, {
-          direction: get().layout,
-          spacing: DEFAULT_SPACING,
+        // Add node to workflow
+        const updatedNodes = [...get().nodes, newNodeWithPosition];
+        const newEdge: WorkflowEdge = {
+          id: `${parentId}-${newNode.id}`,
+          source: parentId,
+          target: newNode.id,
+          type: "workflow",
+        };
+        const updatedEdges = [...get().edges, newEdge];
+
+        set({
+          nodes: updatedNodes,
+          edges: updatedEdges,
         });
-        set({ nodes, edges });
-      },
-
-      toggleGhostNodes: () => {
-        console.log("toggleGhostNodes");
-        set((state) => ({ showGhostNodes: !state.showGhostNodes }));
-      },
-
-      updateLayout: () => {
-        const workflow = get().workflow;
-        if (!workflow) return;
-
-        const { nodes, edges } = generateWorkflowLayout(workflow, {
-          direction: get().layout,
-          spacing: DEFAULT_SPACING,
-          nodeWidth: DEFAULT_NODE_DIMENSIONS.width,
-          nodeHeight: DEFAULT_NODE_DIMENSIONS.height,
-          showGhostNodes: get().showGhostNodes,
-        });
-
-        set({ nodes, edges });
       },
     }),
     { name: "workflow-store" }

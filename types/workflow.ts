@@ -16,4 +16,6 @@ export interface WorkflowNode extends Node {
   children?: WorkflowNode[];
 }
 
-export interface WorkflowEdge extends Edge {}
+export interface WorkflowEdge extends Edge {
+  type: "workflow" | "ghost";
+}
