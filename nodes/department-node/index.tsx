@@ -4,12 +4,19 @@ import { Handle, Position, NodeProps } from "@xyflow/react";
 import { WorkflowNode } from "@/types/workflow";
 import { DeptConfigSheet } from "./sheet";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Workflow } from "lucide-react";
+import { Calendar, InfoIcon, Workflow } from "lucide-react";
 import { useWorkflowStore } from "@/stores/workflow-store";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
+
 export interface DepartmentData extends Record<string, unknown> {
   label: string;
-  departmentId: string;
   task: string;
+  departments: string[];
   assignee: string;
   dueDate: string;
   priority: string;
@@ -77,6 +84,28 @@ function DeptNode({ data, id }: DepartmentNodeProps) {
         return "bg-gray-100 text-gray-800";
     }
   };
+  const getMarkColor = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case "done":
+        return "bg-red-100 text-red-800";
+      case "in-progress":
+        return "bg-green-100 text-green-800";
+      case "todo":
+        return "bg-yellow-100 text-yellow-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const handleMark = () => {
+    if (data.status == "todo") {
+      handleUpdate({ status: "in-progress" });
+    } else if (data.status == "in-progress") {
+      handleUpdate({ status: "done" });
+    } else {
+      handleUpdate({ status: "todo" });
+    }
+  };
 
   return (
     <>
@@ -91,13 +120,21 @@ function DeptNode({ data, id }: DepartmentNodeProps) {
         />
 
         <div className="space-y-2">
-          <div className="font-bold text-sm">{data.label}</div>
+          <div className="flex justify-between items-center">
+            <div className="font-bold text-sm">{data.label}</div>
+            <Popover>
+              <PopoverTrigger className="cursor-pointer hover:text-blue-500 hover:bg-blue-100 p-1 rounded">
+                <InfoIcon className="w-3 h-3" />
+              </PopoverTrigger>
+              <PopoverContent side="right">{data.task}</PopoverContent>
+            </Popover>
+          </div>
 
-          {data.task && (
+          {/* {data.task && (
             <div className="text-xs text-gray-500 line-clamp-2">
               {data.task}
             </div>
-          )}
+          )} */}
 
           <div className="flex flex-wrap gap-1">
             {data.priority && (
@@ -136,6 +173,18 @@ function DeptNode({ data, id }: DepartmentNodeProps) {
               </div>
             )}
           </div>
+
+          <Button
+            className={`h-6 w-full ${getMarkColor(data.status as string)}`}
+            onClick={handleMark}
+            variant="secondary"
+          >
+            {data.status == "todo"
+              ? "Mark as In-Progress"
+              : data.status == "in-progress"
+              ? "Mark as Complete"
+              : "Redact Completion"}
+          </Button>
         </div>
 
         <Handle

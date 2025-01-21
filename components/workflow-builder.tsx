@@ -15,6 +15,7 @@ import {
   useReactFlow,
   Node,
   OnConnectStartParams,
+  ConnectionState,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
@@ -43,22 +44,60 @@ const edgeTypes = {
   workflow: workflowEdge,
 };
 
-const initialWorkflow: WorkflowNode = {
-  id: "start",
-  type: "start" as NodeType,
-  position: { x: 100, y: 100 }, // Give it specific coordinates
-  data: { label: "Start" },
-  children: [
-    {
-      id: "task-1",
-      type: "task" as NodeType,
-      position: { x: 250, y: 100 }, // Position it relative to start
-      data: { label: "Task 1" },
-      parentId: "start",
-      depth: 1,
+const initialWorkflow: WorkflowNode[] = [
+  {
+    id: "start-node",
+    type: "start",
+    position: { x: 100, y: 100 },
+    data: { label: "Start" },
+    sourcePosition: Position.Right,
+  },
+  {
+    id: "department-node",
+    type: "department",
+    position: { x: 300, y: 100 },
+    data: {
+      label: "Department",
+      task: "Initial task",
+      departments: [],
+      assignee: "",
+      dueDate: "",
+      priority: "medium",
+      status: "todo",
+      comments: "",
+      attachments: "",
+      tags: [],
     },
-  ],
-};
+    parentId: "start-node",
+    sourcePosition: Position.Right,
+    targetPosition: Position.Left,
+    depth: 1,
+  },
+  {
+    id: "end-node",
+    type: "end",
+    position: { x: 500, y: 100 },
+    data: { label: "End" },
+    parentId: "department-node",
+    targetPosition: Position.Left,
+    depth: 2,
+  },
+];
+
+const initialEdges: WorkflowEdge[] = [
+  {
+    id: "start-to-department",
+    source: "start-node",
+    target: "department-node",
+    type: "workflow",
+  },
+  {
+    id: "department-to-end",
+    source: "department-node",
+    target: "end-node",
+    type: "workflow",
+  },
+];
 
 export default function WorkflowBuilder() {
   const { fitView, screenToFlowPosition } = useReactFlow();
@@ -79,7 +118,7 @@ export default function WorkflowBuilder() {
   });
 
   useEffect(() => {
-    initialize(initialWorkflow);
+    initialize(initialWorkflow, initialEdges);
   }, [initialize]);
 
   const handleAddNode = useCallback(
@@ -113,7 +152,10 @@ export default function WorkflowBuilder() {
 
   const onConnect = useCallback(
     (params: Connection | Edge) => {
-      setEdges((eds: Edge[]) => addEdge(params, eds as WorkflowEdge[]));
+      setEdges((eds: WorkflowEdge[]) => {
+        const newEdges = addEdge({ ...params, type: "workflow" }, eds);
+        return newEdges as WorkflowEdge[];
+      });
     },
     [setEdges]
   );
@@ -141,8 +183,12 @@ export default function WorkflowBuilder() {
   );
 
   const onConnectEnd = useCallback(
-    (event: MouseEvent | TouchEvent) => {
+    (
+      event: MouseEvent | TouchEvent,
+      connectionState: ConnectionState
+    ) => {
       if (!menuState.sourceNode) return;
+      if (connectionState.isValid) return;
 
       event.preventDefault();
 
@@ -257,7 +303,7 @@ export default function WorkflowBuilder() {
         <Background gap={20} size={1} />
         <Controls showInteractive={false} />
         <MiniMap nodeStrokeWidth={3} zoomable pannable />
-        <Panel position="top-left">
+        <Panel position="top-right">
           <WorkflowToolbar {...toolbarProps} />
         </Panel>
         <AnimatePresence>

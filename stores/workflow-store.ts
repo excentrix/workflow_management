@@ -13,31 +13,39 @@ import {
 import { WorkflowNode, WorkflowEdge } from "@/types/workflow";
 
 interface WorkflowState {
-  workflow: WorkflowNode | null;
+  workflow: WorkflowNode[] | null;
   nodes: WorkflowNode[];
   edges: WorkflowEdge[];
-  initialize: (initialWorkflow: WorkflowNode) => void;
+  initialize: (
+    initialWorkflow: WorkflowNode[],
+    initialEdges: WorkflowEdge[]
+  ) => void;
   onNodesChange: (changes: NodeChange[]) => void;
   onEdgesChange: (changes: EdgeChange[]) => void;
   addWorkflowNode: (parentId: string, newNode: WorkflowNode) => void;
   setNodes: (
     updater: WorkflowNode[] | ((nodes: WorkflowNode[]) => WorkflowNode[])
   ) => void;
-  setEdges: (edges: WorkflowEdge[]) => void;
+  setEdges: (
+    updater: WorkflowEdge[] | ((edges: WorkflowEdge[]) => WorkflowEdge[])
+  ) => void;
 }
 
 export const useWorkflowStore = create<WorkflowState>()(
   devtools(
     (set, get) => ({
-      workflow: null,
+      workflow: [null],
       nodes: [],
       edges: [],
 
-      initialize: (initialWorkflow) => {
+      initialize: (
+        initialWorkflow: WorkflowNode[],
+        initialEdges: WorkflowEdge[]
+      ) => {
         set({
           workflow: initialWorkflow,
-          nodes: [initialWorkflow],
-          edges: [],
+          nodes: initialWorkflow,
+          edges: initialEdges,
         });
       },
 
@@ -54,13 +62,17 @@ export const useWorkflowStore = create<WorkflowState>()(
         set({ nodes: newNodes });
       },
 
-      setEdges: (edges) => {
-        set({ edges });
+      setEdges: (updater) => {
+        const edges = get().edges;
+        const newEdges =
+          typeof updater === "function" ? updater(edges) : updater;
+        set({ edges: newEdges });
       },
 
       onNodesChange: (changes: NodeChange[]) => {
         const nodes = get().nodes;
         // Update nodes with position changes
+        // console.log(nodes)
         const updatedNodes = nodes.map((node) => {
           const positionChange = changes.find(
             (c): c is NodePositionChange =>
@@ -113,6 +125,7 @@ export const useWorkflowStore = create<WorkflowState>()(
 
       addWorkflowNode: (parentId, newNode) => {
         const workflow = get().workflow;
+        console.log(workflow);
         if (!workflow) return;
 
         // Ensure newNode has a valid position
